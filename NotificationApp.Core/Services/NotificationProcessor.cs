@@ -25,20 +25,17 @@ namespace NotificationApp.Core.Services
 
             var record = NotificationRecord.FromRequest(request, level.Value);
 
-            if (!record.Level.ShouldForward(_settings.ForwardThreshold))
-                return ProcessResult.LoggedOnly;
-
             if (!_rateLimiter.TryConsume())
                 return ProcessResult.RateLimitReached;
 
             try
             {
                 await _sender.SendAsync(record, cancellationToken);
-                return ProcessResult.Forwarded;
+                return ProcessResult.Sent;
             }
             catch (HttpRequestException)
             {
-                return ProcessResult.ForwardingFailed;
+                return ProcessResult.SendFailed;
             }
         }
     }
@@ -48,13 +45,12 @@ namespace NotificationApp.Core.Services
     /// </summary>
     public enum ProcessResult
     {
-        LoggedOnly, //Level was below the forward threshold — stored locally only.
-        Forwarded, //Successfully forwarded to the external sender.
+        Sent, //Successfully sent to the external sender.
 
         RateLimitReached, //10/min limit reached — caller should respond with 429.
 
         InvalidLevel, //Level string was not recognised — caller should respond with 400.
 
-        ForwardingFailed  // Discord rejected the request
+        SendFailed  // Discord rejected the request
     }
 }

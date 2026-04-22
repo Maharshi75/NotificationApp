@@ -20,8 +20,8 @@ namespace NotificationApp.Api.Controllers
         /// POST /api/notifications
         ///
         /// Responses:
-        ///   200 OK           — logged only (below forward threshold)
-        ///   202 Accepted     — forwarded to external sender
+        ///   200 OK           — logged only (below sent threshold)
+        ///   202 Accepted     — sent to external sender
         ///   400 Bad Request  — invalid or unrecognised level
         ///   429 Too Many     — rate limit reached, try again later
         ///   502 Bad Geteway  - webhook url is wrong
@@ -33,16 +33,10 @@ namespace NotificationApp.Api.Controllers
 
             return result switch
             {
-                ProcessResult.LoggedOnly => Ok(new
+                ProcessResult.Sent => Accepted(new
                 {
-                    status = "logged",
-                    message = "Notification received and logged. Level is below the forward threshold."
-                }),
-
-                ProcessResult.Forwarded => Accepted(new
-                {
-                    status = "forwarded",
-                    message = "Notification received and forwarded successfully."
+                    status = "sent",
+                    message = "Notification received and sent successfully."
                 }),
 
                 ProcessResult.RateLimitReached => StatusCode(429, new
@@ -54,13 +48,13 @@ namespace NotificationApp.Api.Controllers
                 ProcessResult.InvalidLevel => BadRequest(new
                 {
                     status = "invalid_level",
-                    message = $"'{request.Level}' is not a recognised notification level. Valid values: Debug, Info, Warning, Error, Critical."
+                    message = $"'{request.Level}' is not a recognised notification level. Valid values: Info, Warning, Error, Critical."
                 }),
 
-                ProcessResult.ForwardingFailed => StatusCode(502, new
+                ProcessResult.SendFailed => StatusCode(502, new
                 {
-                    status = "forwarding_failed",
-                    message = "Notification was received but could not be forwarded to Discord. Check your webhook URL."
+                    status = "send_failed",
+                    message = "Notification was received but could not be sent to Discord. Check your webhook URL."
                 }),
 
                 _ => StatusCode(500, new { status = "error", message = "Unexpected processing result." })

@@ -15,9 +15,9 @@ namespace NotificationApp.Test.UnitTests
         private NotificationProcessor CreateProcessor() =>
             new(_rateLimiter.Object, _sender.Object, Options.Create(new NotificationSettings
             {
-                ForwardThreshold = NotificationLevel.Warning,
                 RateLimitPerMinute = 10
-            }));
+            }
+        ));
 
         private static NotificationRequest BuildRequest(string level = "Warning") => new()
         {
@@ -27,19 +27,11 @@ namespace NotificationApp.Test.UnitTests
         };
 
         [Fact]
-        public async Task BelowThreshold_LoggedOnly()
-        {
-            var result = await CreateProcessor().ProcessAsync(BuildRequest("Info"));
-            result.Should().Be(ProcessResult.LoggedOnly);
-            _sender.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task AboveThreshold_WithinLimit_Forwarded()
+        public async Task MeetsThreshold_WithinLimit_ReturnsSent()
         {
             _rateLimiter.Setup(r => r.TryConsume()).Returns(true);
             var result = await CreateProcessor().ProcessAsync(BuildRequest("Warning"));
-            result.Should().Be(ProcessResult.Forwarded);
+            result.Should().Be(ProcessResult.Sent);
         }
 
         [Fact]
@@ -69,7 +61,7 @@ namespace NotificationApp.Test.UnitTests
 
             var result = await CreateProcessor().ProcessAsync(BuildRequest("Warning"));
 
-            result.Should().Be(ProcessResult.ForwardingFailed);
+            result.Should().Be(ProcessResult.SendFailed);
         }
     }
 }

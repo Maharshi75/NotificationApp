@@ -63,7 +63,7 @@ namespace NotificationApp.Core.Services
             }
             else
             {
-                _logger.LogInformation("Notification forwarded to Discord. Id={Id} Level={Level}", record.Id, record.Level);
+                _logger.LogInformation("Notification sended to Discord. Id={Id} Level={Level}", record.Id, record.Level);
             }
         }
     }

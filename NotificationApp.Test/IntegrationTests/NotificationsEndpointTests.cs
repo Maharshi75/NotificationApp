@@ -57,8 +57,12 @@ namespace NotificationApp.Test.IntegrationTests
             }).CreateClient();
         }
 
-        [Fact]
-        public async Task Post_ValidWarning_Returns202Accepted()
+        [Theory]
+        [InlineData("Info")]
+        [InlineData("Warning")]
+        [InlineData("Error")]
+        [InlineData("Critical")]
+        public async Task Post_ValidLevel_Returns202Accepted(string level)
         {
             var mockSender = new Mock<IDiscordSender>();
             mockSender
@@ -70,10 +74,10 @@ namespace NotificationApp.Test.IntegrationTests
 
             var payload = new
             {
-                title = "Disk usage high",
-                message = "Disk usage has exceeded 90%",
-                level = "Warning",
-                source = "MonitoringService"
+                title = "Test notification",
+                message = "Test message",
+                level = level,
+                source = "TestService"
             };
 
             var response = await client.PostAsJsonAsync("/api/notifications", payload);
@@ -81,23 +85,6 @@ namespace NotificationApp.Test.IntegrationTests
             _factory.DiscordSenderOverride = null;
 
             response.StatusCode.Should().Be(HttpStatusCode.Accepted);
-        }
-
-        [Fact]
-        public async Task Post_InfoLevel_Returns200Ok()
-        {
-            var client = CreateClient();
-
-            var payload = new
-            {
-                title = "Deployment complete",
-                message = "v1.2.3 deployed successfully",
-                level = "Info",
-                source = "DeployService"
-            };
-
-            var response = await client.PostAsJsonAsync("/api/notifications", payload);
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
 
         [Fact]

@@ -35,7 +35,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Notification API",
         Version = "v1",
-        Description = "Receives notifications and forwards qualifying levels to an external interface."
+        Description = "Receives notifications and send qualifying levels to an external interface."
     });
 });
 

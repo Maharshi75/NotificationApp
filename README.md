@@ -1,6 +1,6 @@
 # NotificationApp
 
-A lightweight HTTP notification service built with ASP.NET Core 8. Receives notification payloads, evaluates severity, and forwards qualifying messages to Discord via webhook. Includes a sliding window rate limiter capped at 10 messages per minute.
+A lightweight HTTP notification service built with ASP.NET Core 8. Receives notification payloads and sends them to Discord via webhook. Includes a sliding window rate limiter capped at 10 messages per minute.
 
 ---
 
@@ -29,6 +29,7 @@ NotificationApp/
 │   │   │   └── IRateLimiter.cs
 │   │   ├── Models/
 │   │   │   ├── NotificationLevel.cs
+│   │   │   ├── NotificationLevelExtensions.cs
 │   │   │   ├── NotificationRecord.cs
 │   │   │   ├── NotificationRequest.cs
 │   │   │   └── NotificationSettings.cs
@@ -84,19 +85,19 @@ All settings live in `src/NotificationApp.Api/appsettings.json`:
 ```json
 {
   "NotificationSettings": {
-    "ForwardThreshold": "Warning",
     "RateLimitPerMinute": 10,
     "Discord": {
       "WebhookUrl": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
-      "Username": "Notification Bot"
+      "Username": "Notification Bot",
+      "AvatarUrl": null
     }
   }
 }
 ```
 
-`ForwardThreshold` accepts: `Info`, `Warning`, `Error`, `Critical`. Any notification at or above this level gets forwarded. The rest are logged locally only.
+All levels (`Info`, `Warning`, `Error`, `Critical`) are sent to Discord. The only control is the rate limit — max 10 messages per 60-second rolling window.
 
-If `WebhookUrl` is empty the app automatically falls back to `MockDiscordSender`, which logs forwarded messages to the console instead of calling Discord. No other configuration needed for local development.
+If `WebhookUrl` is empty the app automatically falls back to `MockDiscordSender`, which logs sent messages to the console instead of calling Discord.
 
 > In production, set the webhook URL via environment variable to avoid committing credentials:
 > `NotificationSettings__Discord__WebhookUrl=https://discord.com/api/webhooks/...`
@@ -107,7 +108,7 @@ If `WebhookUrl` is empty the app automatically falls back to `MockDiscordSender`
 
 ### POST /api/notifications
 
-Accepts a JSON notification payload.
+Accepts a JSON notification payload and sends it to Discord.
 
 **Request body:**
 
@@ -123,38 +124,23 @@ Accepts a JSON notification payload.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| title | string | yes 
-| message | string | no 
+| title | string | yes | Max 200 chars |
+| message | string | no | Max 2000 chars |
 | level | string | yes | Info / Warning / Error / Critical |
 | source | string | no | Which service sent this |
 | timestamp | datetime | no | Defaults to UTC now if omitted |
+| metadata | object | no | Arbitrary key-value pairs |
 
 **Responses:**
 
 | Status | Meaning |
 |---|---|
-| 200 OK | Received and logged — below forward threshold |
-| 202 Accepted | Received and forwarded to Discord |
+| 202 Accepted | Notification received and sent to Discord |
 | 400 Bad Request | Missing required field or unrecognised level |
 | 429 Too Many Requests | 10/min rate limit reached, try again later |
 | 502 Bad Gateway | Notification received but Discord rejected it |
 
-**Example — below threshold:**
-
-```bash
-curl -X POST http://localhost:5000/api/notifications \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Deploy done","message":"v1.2.3 deployed","level":"Info","source":"CI"}'
-```
-
-```json
-{
-  "status": "logged",
-  "message": "Notification received and logged. Level is below the forward threshold."
-}
-```
-
-**Example — forwarded:**
+**Example — sent successfully:**
 
 ```bash
 curl -X POST http://localhost:5000/api/notifications \
@@ -164,8 +150,8 @@ curl -X POST http://localhost:5000/api/notifications \
 
 ```json
 {
-  "status": "forwarded",
-  "message": "Notification received and forwarded successfully."
+  "status": "sent",
+  "message": "Notification received and sent successfully."
 }
 ```
 
@@ -178,11 +164,20 @@ curl -X POST http://localhost:5000/api/notifications \
 }
 ```
 
+**Example — invalid level:**
+
+```json
+{
+  "status": "invalid_level",
+  "message": "'SuperCritical' is not a recognised notification level. Valid values: Info, Warning, Error, Critical."
+}
+```
+
 ---
 
 ## Rate limiting
 
-Uses a sliding window algorithm. A `ConcurrentQueue<DateTime>` tracks timestamps of forwarded messages. On each request, timestamps older than 60 seconds are evicted from the front of the queue. If the queue length equals the configured limit, the request is rejected immediately with `429`.
+Uses a sliding window algorithm. A `ConcurrentQueue<DateTime>` tracks timestamps of sent messages. On each request, timestamps older than 60 seconds are evicted from the front of the queue. If the queue length equals the configured limit, the request is rejected immediately with `429`.
 
 The window is rolling — not a fixed 60s bucket. 10 messages sent at 00:59 blocks further messages until 01:59, not until 01:00.
 
@@ -204,9 +199,9 @@ dotnet test --logger "console;verbosity=normal"
 
 Tests cover:
 
-- Processor routing: below threshold, forwarded, rate limited, invalid level, Discord failure
+- Processor: meets threshold within limit, rate limited, invalid level, Discord send failure
 - Rate limiter: within limit returns true, exceeded returns false
-- Integration: full HTTP pipeline via `WebApplicationFactory` — 200, 202, 400, 429 responses
+- Integration: full HTTP pipeline — 202 for all valid levels, 400, 429 responses
 
 ---
 
@@ -217,4 +212,4 @@ The app ships with two implementations of `IDiscordSender`:
 - `MockDiscordSender` — logs to console, used when `WebhookUrl` is empty or in Test environment
 - `DiscordSender` — posts a formatted embed to the Discord webhook URL
 
-Switching between them is automatic based on configuration — no code changes needed. To get a webhook URL, create a server in Discord, right-click a channel → Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL.
+Switching between them is automatic based on configuration. To get a webhook URL, create a server in Discord, right-click a channel → Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL.

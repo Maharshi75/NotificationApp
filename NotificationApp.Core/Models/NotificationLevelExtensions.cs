@@ -11,14 +11,13 @@
             if (string.IsNullOrWhiteSpace(value))
                 return null;
 
+            // Reject numeric strings — level must be a name, not a number
+            if (int.TryParse(value, out _))
+                return null;
+
             return Enum.TryParse<NotificationLevel>(value, ignoreCase: true, out var result)
                 ? result
                 : null;
         }
-
-        /// <summary>
-        /// Returns true if this level meets or exceeds the configured forward threshold.
-        /// </summary>
-        public static bool ShouldForward(this NotificationLevel level, NotificationLevel threshold) => level >= threshold;
     }
 }
