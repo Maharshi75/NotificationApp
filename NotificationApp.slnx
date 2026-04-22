@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="NotificationApp.Core/NotificationApp.Core.csproj" Id="348a9c0e-18c6-4d40-af96-94df66f3682f" />
+    <Project Path="NotificationApp.Api/NotificationApp.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="NotificationApp.Test/NotificationApp.Test.csproj" Id="f517c4a9-6a0f-46c0-8a44-0bcb1195ca6a" />
+  </Folder>
+</Solution>
