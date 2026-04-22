@@ -25,6 +25,9 @@ namespace NotificationApp.Core.Services
 
             var record = NotificationRecord.FromRequest(request, level.Value);
 
+            if (!record.Level.ShouldForward(_settings.ForwardThreshold))
+                return ProcessResult.LoggedOnly;
+
             if (!_rateLimiter.TryConsume())
                 return ProcessResult.RateLimitReached;
 
@@ -45,6 +48,8 @@ namespace NotificationApp.Core.Services
     /// </summary>
     public enum ProcessResult
     {
+        LoggedOnly, //Logged if level is within the threshold
+
         Sent, //Successfully sent to the external sender.
 
         RateLimitReached, //10/min limit reached — caller should respond with 429.

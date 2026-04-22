@@ -19,5 +19,8 @@
                 ? result
                 : null;
         }
+
+        public static bool ShouldForward(this NotificationLevel level, NotificationLevel threshold)
+            => level >= threshold;
     }
 }

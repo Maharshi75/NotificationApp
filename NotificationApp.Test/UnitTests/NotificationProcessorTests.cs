@@ -15,6 +15,7 @@ namespace NotificationApp.Test.UnitTests
         private NotificationProcessor CreateProcessor() =>
             new(_rateLimiter.Object, _sender.Object, Options.Create(new NotificationSettings
             {
+                ForwardThreshold = NotificationLevel.Warning,
                 RateLimitPerMinute = 10
             }
         ));
@@ -25,6 +26,14 @@ namespace NotificationApp.Test.UnitTests
             Message = "This is a test message",
             Level = level,
         };
+
+        [Fact]
+        public async Task BelowThreshold_ReturnsLoggedOnly()
+        {
+            var result = await CreateProcessor().ProcessAsync(BuildRequest("Info"));
+            result.Should().Be(ProcessResult.LoggedOnly);
+            _sender.VerifyNoOtherCalls();
+        }
 
         [Fact]
         public async Task MeetsThreshold_WithinLimit_ReturnsSent()

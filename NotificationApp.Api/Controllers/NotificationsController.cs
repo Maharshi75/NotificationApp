@@ -33,6 +33,12 @@ namespace NotificationApp.Api.Controllers
 
             return result switch
             {
+                ProcessResult.LoggedOnly => Ok(new
+                {
+                    status = "logged",
+                    message = "Notification received and logged. Level is below Warning threshold."
+                }),
+
                 ProcessResult.Sent => Accepted(new
                 {
                     status = "sent",

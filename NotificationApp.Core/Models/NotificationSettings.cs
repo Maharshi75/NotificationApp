@@ -3,6 +3,7 @@
     public class NotificationSettings
     {
         public const string SectionName = "NotificationSettings";
+        public NotificationLevel ForwardThreshold { get; init; } = NotificationLevel.Warning;
         public int RateLimitPerMinute { get; init; } = 10;
         public DiscordSettings Discord { get; init; } = new();
 

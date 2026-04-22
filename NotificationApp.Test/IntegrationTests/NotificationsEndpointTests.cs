@@ -58,7 +58,6 @@ namespace NotificationApp.Test.IntegrationTests
         }
 
         [Theory]
-        [InlineData("Info")]
         [InlineData("Warning")]
         [InlineData("Error")]
         [InlineData("Critical")]
@@ -85,6 +84,15 @@ namespace NotificationApp.Test.IntegrationTests
             _factory.DiscordSenderOverride = null;
 
             response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        }
+
+        [Fact]
+        public async Task Post_InfoLevel_Returns200Ok()
+        {
+            var client = CreateClient();
+            var payload = new { title = "Test", message = "Test message", level = "Info" };
+            var response = await client.PostAsJsonAsync("/api/notifications", payload);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
 
         [Fact]

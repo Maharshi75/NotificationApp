@@ -1,6 +1,6 @@
 # NotificationApp
 
-A lightweight HTTP notification service built with ASP.NET Core 8. Receives notification payloads and sends them to Discord via webhook. Includes a sliding window rate limiter capped at 10 messages per minute.
+A lightweight HTTP notification service built with ASP.NET Core 8. Receives notification payloads, evaluates severity, and forwards qualifying messages to Discord via webhook. Notifications at `Warning` level or higher are forwarded. `Info` level is received and logged only. Includes a sliding window rate limiter capped at 10 messages per minute.
 
 ---
 
@@ -85,6 +85,7 @@ All settings live in `src/NotificationApp.Api/appsettings.json`:
 ```json
 {
   "NotificationSettings": {
+    "ForwardThreshold": "Warning",
     "RateLimitPerMinute": 10,
     "Discord": {
       "WebhookUrl": "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN",
@@ -95,7 +96,7 @@ All settings live in `src/NotificationApp.Api/appsettings.json`:
 }
 ```
 
-All levels (`Info`, `Warning`, `Error`, `Critical`) are sent to Discord. The only control is the rate limit — max 10 messages per 60-second rolling window.
+`ForwardThreshold` controls which levels get sent to Discord. Defaults to `Warning` — so `Warning`, `Error`, and `Critical` are forwarded. `Info` is received and logged only.
 
 If `WebhookUrl` is empty the app automatically falls back to `MockDiscordSender`, which logs sent messages to the console instead of calling Discord.
 
@@ -108,7 +109,7 @@ If `WebhookUrl` is empty the app automatically falls back to `MockDiscordSender`
 
 ### POST /api/notifications
 
-Accepts a JSON notification payload and sends it to Discord.
+Accepts a JSON notification payload.
 
 **Request body:**
 
@@ -135,12 +136,28 @@ Accepts a JSON notification payload and sends it to Discord.
 
 | Status | Meaning |
 |---|---|
-| 202 Accepted | Notification received and sent to Discord |
+| 200 OK | Received and logged — level is below Warning threshold |
+| 202 Accepted | Notification sent to Discord successfully |
 | 400 Bad Request | Missing required field or unrecognised level |
 | 429 Too Many Requests | 10/min rate limit reached, try again later |
 | 502 Bad Gateway | Notification received but Discord rejected it |
 
-**Example — sent successfully:**
+**Example — logged only (Info):**
+
+```bash
+curl -X POST http://localhost:5000/api/notifications \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Deploy done","message":"v1.2.3 deployed","level":"Info","source":"CI"}'
+```
+
+```json
+{
+  "status": "logged",
+  "message": "Notification received and logged. Level is below Warning threshold."
+}
+```
+
+**Example — sent to Discord (Warning or higher):**
 
 ```bash
 curl -X POST http://localhost:5000/api/notifications \
@@ -164,14 +181,18 @@ curl -X POST http://localhost:5000/api/notifications \
 }
 ```
 
-**Example — invalid level:**
+---
 
-```json
-{
-  "status": "invalid_level",
-  "message": "'SuperCritical' is not a recognised notification level. Valid values: Info, Warning, Error, Critical."
-}
-```
+## Notification levels
+
+| Level | Behaviour |
+|---|---|
+| Info | Received and logged only — not sent to Discord |
+| Warning | Sent to Discord |
+| Error | Sent to Discord |
+| Critical | Sent to Discord |
+
+The threshold is configurable via `ForwardThreshold` in `appsettings.json` — no code changes needed.
 
 ---
 
@@ -199,9 +220,9 @@ dotnet test --logger "console;verbosity=normal"
 
 Tests cover:
 
-- Processor: meets threshold within limit, rate limited, invalid level, Discord send failure
+- Processor: below threshold logged only, sent within limit, rate limited, invalid level, Discord send failure
 - Rate limiter: within limit returns true, exceeded returns false
-- Integration: full HTTP pipeline — 202 for all valid levels, 400, 429 responses
+- Integration: Info returns 200, Warning/Error/Critical return 202, 400 for bad input, 429 for rate limit
 
 ---
 
